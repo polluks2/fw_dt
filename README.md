@@ -61,4 +61,4 @@ The DataType parses the FinalWriter IFF-based format:
 
 ## License
 
-MIT
+GNU General Public License v3.0 or later

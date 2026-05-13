@@ -5,6 +5,21 @@
  * FinalWriter document files (.fw) and renders them with
  * basic formatting support.
  *
+ * Copyright (C) 2026  Stefan Haubenthal
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
  * Compile with SAS/C:  sc link finalwriter_datatype.c TO finalwriter.datatype
  * Compile with GCC:    m68k-amigaos-gcc -noixemul -o finalwriter.datatype finalwriter_datatype.c
  */
@@ -123,17 +138,18 @@ static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
 
         ULONG chkSize = SwapLong(*(ULONG *)(hdr + 4));
 
-        /* ATTR + CHRS pair */
+        /* ATTR + CHRS pair (ATTR is 22 bytes, big-endian) */
         if (hdr[0] == 'A' && hdr[1] == 'T' && hdr[2] == 'T' && hdr[3] == 'R')
         {
             UBYTE ad[22];
             if (Read(fh, ad, 22) != 22) break;
 
-            UWORD  fontIdx  = (ad[0] << 8) | ad[1];
-            UBYTE  fontSize = ad[3];
-            UBYTE  style    = ad[5];
-            UBYTE  flags    = ad[7];
-            ULONG  charCnt  = (ad[14] << 24) | (ad[15] << 16) | (ad[16] << 8) | ad[17];
+            ULONG  charCnt  = ((ULONG)ad[0]  << 24) | ((ULONG)ad[1]  << 16) |
+                              ((ULONG)ad[2]  <<  8) | (ULONG)ad[3];
+            UWORD  fontIdx  = ((UWORD)ad[4]  <<  8) | (UWORD)ad[5];
+            UBYTE  fontSize = ad[7];
+            UBYTE  style    = ad[9];
+            UBYTE  flags    = ad[11];
 
             /* read CHRS tag + size */
             UBYTE chk2[8];
