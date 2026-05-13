@@ -1,0 +1,9 @@
+include $(SRCDIR)/config/aros.cfg
+
+USER_LDFLAGS := -static
+
+FILES := swrtclass
+
+%build_module mmake=workbench-datatypes-swrt \
+    modname=swrt modtype=datatype \
+    files=$(FILES)

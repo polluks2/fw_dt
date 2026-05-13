@@ -7,73 +7,60 @@ Usage: python gendt.py > FinalWriter.dt
 import struct
 import sys
 
-def chunks(name, data):
-    buf = struct.pack('>4sI', name.encode(), len(data)) + data
-    if len(buf) & 1:
-        buf += b'\0'
-    return buf
+def pad(b):
+    if len(b) & 1:
+        return b + b'\0'
+    return b
 
-def make_id(s):
-    return struct.unpack('>I', s.encode())[0]
+# build the DFILE chunks in order; calculate TDHD offsets from actual positions
 
-pad = b'\0\0'
+pat = b'#?.fw\0'
+nam = b'FinalWriter Document\0'
+bas = b'text\0'
+mdata = struct.pack('>HHHH', 0x53FF, 0x57FF, 0x52FF, 0x54FF)  # S W R T mask words
+mask_len = 4
 
-name = 'FinalWriter Document'
-base = 'text'
-pattern = '#?.fw'
-mask = None
-mask_data = None
-mask_len = 0
+# Layout inside FORM FDTE:
+#   TDHD(8+32)  TDPT(8+6)  TDNA(8+21+pad)  TDBN(8+5+pad)  TDME(8+8)
 
-dth_name = name.encode('latin-1') + b'\0'
-dth_basename = base.encode('latin-1') + b'\0'
-dth_pattern = pattern.encode('latin-1') + b'\0'
-dth_mask = struct.pack('>8s', b'\xff' * 8)
-dth_group_id = 0x40000000  # GID_TEXT
-dth_id = make_id('FWR1')
-dth_flags = 1  # DTF_ASCII
-dth_priority = 0
+off = 0
+tdhd_chunk_start = off
+off += 4  # chunk ID
+off += 4  # chunk size
+tdhd_data_start = off  # absolute offset of DataTypeHeader struct
+off += 32  # DataTypeHeader is 32 bytes
 
-tdhd_data = (
-    struct.pack('>I', 0) +  # offset to dth_Name (patched below)
-    struct.pack('>I', 0) +  # offset to dth_BaseName
-    struct.pack('>I', 0) +  # offset to dth_Pattern
-    struct.pack('>I', 0) +  # offset to dth_Mask
-    struct.pack('>I', dth_group_id) +
-    struct.pack('>I', dth_id) +
-    struct.pack('>h', mask_len) +
-    struct.pack('>h', 0) +
-    struct.pack('>H', dth_flags) +
-    struct.pack('>h', dth_priority)
-)
+pat_data_start = off
+pat_full = pad(b'TDPT' + struct.pack('>I', len(pat)) + pat)
+off += len(pat_full)
 
-name_off = 44
-base_off = name_off + len(dth_name)
-pat_off = base_off + len(dth_basename)
-mask_off = pat_off + len(dth_pattern)
+nam_data_start = off
+nam_full = pad(b'TDNA' + struct.pack('>I', len(nam)) + nam)
+off += len(nam_full)
 
-names_data = dth_name + dth_basename + dth_pattern
+bas_data_start = off
+bas_full = pad(b'TDBN' + struct.pack('>I', len(bas)) + bas)
+off += len(bas_full)
 
-tdhd = struct.pack('>I', name_off)
-tdhd += struct.pack('>I', base_off)
-tdhd += struct.pack('>I', pat_off)
-tdhd += struct.pack('>I', mask_off if mask else 0)
-tdhd += struct.pack('>I', dth_group_id)
-tdhd += struct.pack('>I', dth_id)
-tdhd += struct.pack('>h', mask_len)
-tdhd += struct.pack('>h', 0)
-tdhd += struct.pack('>H', dth_flags)
-tdhd += struct.pack('>h', dth_priority)
+mdata_data_start = off
+mdata_full = pad(b'TDME' + struct.pack('>I', len(mdata)) + mdata)
 
-tdme_data = b'\xff' * 8
+# Offsets relative to TDHD data start
+name_off = nam_data_start - tdhd_data_start
+base_off = bas_data_start - tdhd_data_start
+pat_off  = pat_data_start - tdhd_data_start
+mask_off = mdata_data_start - tdhd_data_start
 
-data = chunks('TDHD', tdhd)
-data += chunks('TDPT', dth_pattern)
-data += chunks('TDNA', dth_name)
-data += chunks('TDBN', dth_basename)
-if mask:
-    data += chunks('TDME', tdme_data)
+tdhd_body = struct.pack('>IIII', name_off, base_off, pat_off, mask_off)
+tdhd_body += struct.pack('>II', 0x40000000, struct.unpack('>I', b'FWR1')[0])
+tdhd_body += struct.pack('>hh', mask_len, 0)
+tdhd_body += struct.pack('>Hh', 1, 0)  # DTF_ASCII, priority=0
 
-form = struct.pack('>4sI', b'FORM', len(data) + 4) + b'FDTE' + data
+# Assemble FORM
+form_data = (b'FDTE'
+    + struct.pack('>4sI', b'TDHD', len(tdhd_body)) + tdhd_body
+    + pat_full + nam_full + bas_full + mdata_full)
 
-sys.stdout.buffer.write(form)
+buffer = b'FORM' + struct.pack('>I', len(form_data)) + form_data
+
+sys.stdout.buffer.write(buffer)
