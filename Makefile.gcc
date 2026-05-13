@@ -1,0 +1,34 @@
+#
+# Makefile for FinalWriter Text DataType (GCC m68k-amigaos)
+#
+# Requires: m68k-amigaos-gcc, m68k-amigaos-binutils
+#
+# To build:  make -f Makefile.gcc
+#
+
+DATATYPE = finalwriter.datatype
+DESCRIPTOR = FinalWriter.dt
+CC = m68k-amigaos-gcc
+CFLAGS = -O2 -Wall -noixemul -m68020
+LFLAGS = -noixemul -o $(DATATYPE)
+
+OBJS = finalwriter_datatype.o
+
+all: $(DATATYPE) $(DESCRIPTOR)
+
+$(DATATYPE): $(OBJS)
+	$(CC) $(LFLAGS) $(OBJS)
+
+finalwriter_datatype.o: finalwriter_datatype.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(DESCRIPTOR):
+	python3 gendt.py > $(DESCRIPTOR)
+
+clean:
+	rm -f $(OBJS) $(DATATYPE) $(DESCRIPTOR)
+
+install: $(DATATYPE) $(DESCRIPTOR)
+	cp $(DATATYPE) /path/to/amiga/Classes/DataTypes/
+	cp $(DESCRIPTOR) /path/to/amiga/DEVS/DataTypes/
+	@echo "Then on Amiga run: AddDataTypes REFRESH"

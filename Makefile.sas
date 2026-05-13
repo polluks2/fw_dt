@@ -1,0 +1,32 @@
+#
+# Makefile for FinalWriter Text DataType (SAS/C)
+#
+# To build:  smake -f Makefile.sas
+#
+
+DATATYPE = finalwriter.datatype
+DESCRIPTOR = FinalWriter.dt
+
+CFLAGS = -c -v -dNODEBUG -dAMIGA
+LFLAGS = link lib cnlist
+
+OBJS = finalwriter_datatype.obj
+
+all: $(DATATYPE) $(DESCRIPTOR)
+
+$(DATATYPE): $(OBJS)
+    sc $(LFLAGS) $(OBJS) to $(DATATYPE)
+
+finalwriter_datatype.obj: finalwriter_datatype.c
+    sc $(CFLAGS) finalwriter_datatype.c
+
+$(DESCRIPTOR):
+    python gendt.py > $(DESCRIPTOR)
+
+clean:
+    -delete $(OBJS) $(DATATYPE) $(DESCRIPTOR) quiet
+
+install: $(DATATYPE) $(DESCRIPTOR)
+    copy $(DATATYPE) Classes:DataTypes/
+    copy $(DESCRIPTOR) DEVS:DataTypes/
+    echo "Run: AddDataTypes REFRESH"
