@@ -1,7 +1,7 @@
 #
 # Makefile for FinalWriter Text DataType (SAS/C)
 #
-# To build:  smake -f Makefile.sas
+# To build:  smake
 #
 
 DATATYPE = finalwriter.datatype

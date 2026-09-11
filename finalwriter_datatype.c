@@ -55,7 +55,7 @@
 #define LIBREVISION  0
 
 static const char libName[]    = "finalwriter.datatype";
-static const char libIdString[] = "finalwriter.datatype 1.0 (13 May 2026)";
+static const char libIdString[] = "finalwriter.datatype 1.0 (11 Sep 2026)";
 
 struct FWLibBase {
     struct Library        lb;

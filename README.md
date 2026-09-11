@@ -10,7 +10,7 @@ A BOOPSI DataType subclass of `text.datatype` that reads FinalWriter document fi
 | `finalwriter.datatype` | Class library for `Classes:DataTypes/` |
 | `finalwriter_datatype.c` | C source code |
 | `gendt.py` | Python script to generate the `.dt` descriptor |
-| `Makefile` / `Makefile.sas` / `Makefile.gcc` | Build files |
+| `Makefile` / `SMakefile` / `Makefile.gcc` | Build files |
 
 ## Installation
 
