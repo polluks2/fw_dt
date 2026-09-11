@@ -1,5 +1,5 @@
 CC    = gcc
-CFLAGS = -O2 -Wall -Wno-pointer-sign
+CFLAGS = -O2 -Wall -ansi -pedantic -Wno-pointer-sign
 AROS  = /usr/local/arossdk
 
 INCLUDES = -I$(AROS)/include -I$(AROS)/include/aros

@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
 
     int prev_was_empty = 0;
     int last_was_nl = 1;
+    unsigned long startpos;
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <file.FinalWriter>\n", argv[0]);
@@ -53,19 +54,24 @@ int main(int argc, char *argv[])
     }
     fclose(fp);
 
-    if (read32(buf) != ID_FORM) {
-        fprintf(stderr, "Not an IFF file\n"); free(buf); return 1;
+    /* Accept FORM/SWRT (real documents) or raw SWRT stream */
+    if (read32(buf) == 0x464F524DUL) {          /* FORM */
+        if (filesize < 12 || read32(buf + 8) != ID_SWRT) {
+            fprintf(stderr, "Not FORM/SWRT\n"); free(buf); return 1;
+        }
+        printf("FORM/SWRT document: %lu bytes\n", filesize);
+        startpos = 12;
+    } else if (read32(buf) == ID_SWRT) {        /* raw SWRT */
+        printf("SWRT stream: %lu bytes\n", filesize);
+        startpos = 4;
+    } else {
+        fprintf(stderr, "Not a FinalWriter file\n"); free(buf); return 1;
     }
-    if (read32(buf + 8) != ID_SWRT) {
-        fprintf(stderr, "Not FORM/SWRT\n"); free(buf); return 1;
-    }
-
-    printf("FORM/SWRT document: %lu bytes\n", filesize);
 
     text_out = fopen("swrt_extracted.txt", "wb");
     if (!text_out) { perror("fopen output"); free(buf); return 1; }
 
-    pos = 12;
+    pos = startpos;
     while (pos + 8 <= filesize) {
         unsigned long chunk_id = read32(buf + pos);
         unsigned long chunk_size = read32(buf + pos + 4);

@@ -108,7 +108,7 @@ static ULONG SwapLong(ULONG x)
 static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
 {
     struct FWInstance *inst;
-    UBYTE magic[4];
+    UBYTE hdr4[4];
     BOOL success = FALSE;
     UBYTE *textBuf = NULL;
     ULONG textAlloc = 0, textPos = 0, totalChars = 0;
@@ -120,8 +120,25 @@ static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
     NewList(&inst->attrList);
     NewList(&inst->fontList);
 
-    if (Read(fh, magic, 4) != 4 || magic[0] != 'S' || magic[1] != 'W'
-        || magic[2] != 'R' || magic[3] != 'T')
+    if (Read(fh, hdr4, 4) != 4)
+    {
+        SetIoErr(ERROR_OBJECT_WRONG_TYPE);
+        return FALSE;
+    }
+
+    /* Accept FORM/SWRT (real FinalWriter documents) as well as raw
+     * SWRT chunk streams (fmt stays at first chunk header). */
+    if (hdr4[0] == 'F' && hdr4[1] == 'O' && hdr4[2] == 'R' && hdr4[3] == 'M')
+    {
+        UBYTE sz[4];
+        if (Read(fh, sz, 4) != 4 || Read(fh, hdr4, 4) != 4 ||
+            hdr4[0] != 'S' || hdr4[1] != 'W' || hdr4[2] != 'R' || hdr4[3] != 'T')
+        {
+            SetIoErr(ERROR_OBJECT_WRONG_TYPE);
+            return FALSE;
+        }
+    }
+    else if (!(hdr4[0] == 'S' && hdr4[1] == 'W' && hdr4[2] == 'R' && hdr4[3] == 'T'))
     {
         SetIoErr(ERROR_OBJECT_WRONG_TYPE);
         return FALSE;
@@ -132,29 +149,37 @@ static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
     {
         UBYTE hdr[8];
         LONG r;
+        ULONG chkSize;
 
         r = Read(fh, hdr, 8);
         if (r != 8) break;
 
-        ULONG chkSize = SwapLong(*(ULONG *)(hdr + 4));
+        chkSize = SwapLong(*(ULONG *)(hdr + 4));
 
         /* ATTR + CHRS pair (ATTR is 22 bytes, big-endian) */
         if (hdr[0] == 'A' && hdr[1] == 'T' && hdr[2] == 'T' && hdr[3] == 'R')
         {
             UBYTE ad[22];
+            UBYTE chk2[8];
+            ULONG charCnt;
+            UWORD fontIdx;
+            UBYTE fontSize;
+            UBYTE style;
+            UBYTE flags;
+            ULONG chrsSize;
+
             if (Read(fh, ad, 22) != 22) break;
 
-            ULONG  charCnt  = ((ULONG)ad[0]  << 24) | ((ULONG)ad[1]  << 16) |
-                              ((ULONG)ad[2]  <<  8) | (ULONG)ad[3];
-            UWORD  fontIdx  = ((UWORD)ad[4]  <<  8) | (UWORD)ad[5];
-            UBYTE  fontSize = ad[7];
-            UBYTE  style    = ad[9];
-            UBYTE  flags    = ad[11];
+            charCnt  = ((ULONG)ad[0]  << 24) | ((ULONG)ad[1]  << 16) |
+                       ((ULONG)ad[2]  <<  8) | (ULONG)ad[3];
+            fontIdx  = ((UWORD)ad[4]  <<  8) | (UWORD)ad[5];
+            fontSize = ad[7];
+            style    = ad[9];
+            flags    = ad[11];
 
             /* read CHRS tag + size */
-            UBYTE chk2[8];
             if (Read(fh, chk2, 8) != 8) break;
-            ULONG chrsSize = SwapLong(*(ULONG *)(chk2 + 4));
+            chrsSize = SwapLong(*(ULONG *)(chk2 + 4));
 
             if (chk2[0] != 'C' || chk2[1] != 'H' || chk2[2] != 'R' || chk2[3] != 'S')
                 break;
@@ -164,6 +189,8 @@ static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
 
             if (charCnt > 0)
             {
+                struct FWAttr *attr;
+
                 /* grow text buffer */
                 if (textPos + charCnt + 1 > textAlloc)
                 {
@@ -179,7 +206,7 @@ static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
                 textPos += charCnt;
 
                 /* store attribute */
-                struct FWAttr *attr = AllocVec(sizeof(struct FWAttr), MEMF_CLEAR);
+                attr = AllocVec(sizeof(struct FWAttr), MEMF_CLEAR);
                 if (attr)
                 {
                     attr->offset    = totalChars;
@@ -218,13 +245,9 @@ static BOOL ParseFile(struct FWLibBase *base, Class *cl, Object *o, BPTR fh)
             else
                 Seek(fh, chkSize + (chkSize & 1), OFFSET_CURRENT);
         }
-        /* RULE - paragraph break */
-        else if (hdr[0] == 'R' && hdr[1] == 'U' && hdr[2] == 'L' && hdr[3] == 'E')
-        {
-            Seek(fh, chkSize + (chkSize & 1), OFFSET_CURRENT);
-        }
         else
         {
+            /* skip any other chunk, incl. RULE */
             Seek(fh, chkSize + (chkSize & 1), OFFSET_CURRENT);
         }
     }
@@ -341,6 +364,14 @@ static ULONG LayoutMethod(struct FWLibBase *base, Class *cl, Object *o,
 
         if (wordWrap || gpl->gpl_Initial)
         {
+            ULONG i;
+            ULONG attrEnd;
+            ULONG segLen;
+            ULONG anchor;
+            UBYTE style;
+            UBYTE flags;
+            ULONG j;
+
             /* clear old line list */
             if (lineList)
             {
@@ -348,11 +379,12 @@ static ULONG LayoutMethod(struct FWLibBase *base, Class *cl, Object *o,
                     FreePooled(inst->memPool, line, sizeof(struct Line));
             }
 
-            for (ULONG i = 0; i <= bufferLen && bsig == 0 && !abortFlag; )
+            for (i = 0; i < bufferLen && bsig == 0 && !abortFlag; )
             {
                 /* find attribute for current position */
-                ULONG attrEnd = bufferLen;
-                UBYTE style = 0, flags = 0;
+                attrEnd = bufferLen;
+                style = 0;
+                flags = 0;
 
                 {
                     struct FWAttr *fa = (struct FWAttr *)inst->attrList.lh_Head;
@@ -369,17 +401,19 @@ static ULONG LayoutMethod(struct FWLibBase *base, Class *cl, Object *o,
                     }
                 }
 
-                ULONG segLen = 0;
-                ULONG anchor = i;
+                segLen = 0;
+                anchor = i;
 
-                for (ULONG j = i; j < bufferLen && j < attrEnd; j++)
+                for (j = i; j < bufferLen && j < attrEnd; j++)
                 {
-                    /* CR+LF */
-                    if (buffer[j] == 13 && j + 1 < bufferLen && buffer[j + 1] == 10)
+                    /* CR / LF / CR+LF */
+                    if (buffer[j] == 13 || buffer[j] == 10)
                     {
                         newSeg = lineFeed = TRUE;
                         segLen = j - anchor;
-                        i = j + 2;
+                        i = j + 1;
+                        if (buffer[j] == 13 && j + 1 < bufferLen && buffer[j + 1] == 10)
+                            i = j + 2;  /* consume CRLF pair */
                         break;
                     }
                     /* form feed / page break */
@@ -401,7 +435,7 @@ static ULONG LayoutMethod(struct FWLibBase *base, Class *cl, Object *o,
                     else
                     {
                         ULONG sw = TextLength(&trp, &buffer[anchor], (j - anchor) + 1);
-                        if (wordWrap && (offset + sw > (ULONG)domain->Width))
+                        if (domain && wordWrap && (offset + sw > (ULONG)domain->Width))
                         {
                             /* word break */
                             ULONG k;
@@ -428,8 +462,8 @@ static ULONG LayoutMethod(struct FWLibBase *base, Class *cl, Object *o,
 
                 if (!newSeg)
                 {
-                    segLen = bufferLen - anchor;
-                    i = bufferLen;
+                    segLen = attrEnd - anchor;
+                    i = attrEnd;
                 }
 
                 if (segLen > 0 || lineFeed)
@@ -437,8 +471,11 @@ static ULONG LayoutMethod(struct FWLibBase *base, Class *cl, Object *o,
                     line = AllocPooled(inst->memPool, sizeof(struct Line));
                     if (line)
                     {
-                        ULONG sw = TextLength(&trp, &buffer[anchor], segLen);
-                        ULONG ls = FS_NORMAL;
+                        ULONG sw;
+                        ULONG ls;
+
+                        sw = TextLength(&trp, &buffer[anchor], segLen);
+                        ls = FS_NORMAL;
                         if (style & 1) ls |= FSF_UNDERLINED;
                         if (style & 4) ls |= FSF_BOLD;
                         if (style & 8) ls |= FSF_ITALIC;
@@ -580,6 +617,8 @@ static ULONG Dispatcher(Class *cl, Object *o, Msg msg)
                 DTA_Busy, TRUE,
                 TAG_END);
             retval = DoSuperMethodA(cl, o, msg);
+            break;
+
         case DTM_ASYNCLAYOUT:
             retval = LayoutMethod(base, cl, o, (struct gpLayout *)msg);
             break;

@@ -9,7 +9,7 @@
 DATATYPE = finalwriter.datatype
 DESCRIPTOR = FinalWriter.dt
 CC = m68k-amigaos-gcc
-CFLAGS = -O2 -Wall -noixemul -m68020
+CFLAGS = -O2 -Wall -ansi -pedantic -noixemul -m68020
 LFLAGS = -noixemul -o $(DATATYPE)
 
 OBJS = finalwriter_datatype.o

@@ -120,36 +120,40 @@ static BOOL SwrtAppendChar(struct SwrtData *data, UBYTE ch)
 static IPTR Swrt__DTM_PROCVAL(Class *cl, Object *o, struct dtProbe *msg)
 {
     struct IFFChunk form;
-    ULONG formtype;
-    ULONG n;
+    ULONG chunk0;
 
     D(bug("Swrt_DTM_PROCVAL: probing\n"));
 
-    /* Must have at least FORM header + 4-byte type */
-    if (msg->dtp_Size < 12)
+    /* Must have at least a 4-byte ID to probe */
+    if (msg->dtp_Size < 4)
         return DTPROBE_MAYBE;
 
-    /* Check FORM signature */
+    /* Check first word: FORM/SWRT, raw SWRT, or unknown */
     CopyMem(msg->dtp_Buffer, &form, 8);
-    if (ReadIFFLong(form.id) != ID_FORM)
-        return DTPROBE_MAYBE;
+    chunk0 = ReadIFFLong(form.id);
+    if (chunk0 == ID_SWRT)
+        return DTPROBE_MAYBE | DTPROBE_SPECIFIC;
 
-    /* Check FORM type = SWRT */
-    formtype = ReadIFFLong((UBYTE *)msg->dtp_Buffer + 8);
-    if (formtype != ID_SWRT)
-        return DTPROBE_MAYBE;
-
-    D(bug("Swrt_DTM_PROCVAL: matched FORM/SWRT\n"));
-
-    /* Also check for a HYPH chunk at the expected position */
-    if (msg->dtp_Size >= 20)
+    if (chunk0 == ID_FORM)
     {
-        ULONG hyphid = ReadIFFLong((UBYTE *)msg->dtp_Buffer + 12);
-        if (hyphid == ID_HYPH)
-            return DTPROBE_MAYBE | DTPROBE_SPECIFIC;
+        /* FORM with type SWRT at offset 8 */
+        if (msg->dtp_Size < 12)
+            return DTPROBE_MAYBE;
+        if (ReadIFFLong((UBYTE *)msg->dtp_Buffer + 8) != ID_SWRT)
+            return DTPROBE_MAYBE;
+
+        D(bug("Swrt_DTM_PROCVAL: matched FORM/SWRT\n"));
+
+        /* Also check for a HYPH chunk at the expected position */
+        if (msg->dtp_Size >= 20)
+        {
+            ULONG hyphid = ReadIFFLong((UBYTE *)msg->dtp_Buffer + 12);
+            if (hyphid == ID_HYPH)
+                return DTPROBE_MAYBE | DTPROBE_SPECIFIC;
+        }
     }
 
-    return DTPROBE_MAYBE | DTPROBE_SPECIFIC;
+    return DTPROBE_MAYBE;
 }
 
 /*****************************************************************************/
@@ -165,11 +169,14 @@ static IPTR Swrt__OM_NEW(Class *cl, Object *o, struct opSet *msg)
         BPTR fh = ZERO;
         ULONG filesize;
         UBYTE *filebuf = NULL;
-        ULONG pos, remaining;
+        ULONG pos;
         BOOL success = FALSE;
         IPTR estlines, poolsize;
+        BOOL prev_was_empty = FALSE;
+        BOOL last_was_nl = TRUE;
 
         data = INST_DATA(cl, (Object *)retval);
+        data->Pool = NULL;
         data->TextBuffer = NULL;
         data->TextBufferLen = 0;
         data->TextBufferAlloced = 0;
@@ -208,9 +215,21 @@ static IPTR Swrt__OM_NEW(Class *cl, Object *o, struct opSet *msg)
             goto fail;
         }
 
-        /* Verify FORM/SWRT header */
-        if (ReadIFFLong(filebuf) != ID_FORM ||
-            ReadIFFLong(filebuf + 8) != ID_SWRT)
+        /* Verify header: either FORM/SWRT or a raw SWRT stream. */
+        if (ReadIFFLong(filebuf) == ID_FORM)
+        {
+            if (filesize < 12 || ReadIFFLong(filebuf + 8) != ID_SWRT)
+            {
+                SetIoErr(ERROR_OBJECT_WRONG_TYPE);
+                goto fail;
+            }
+            pos = 12;
+        }
+        else if (ReadIFFLong(filebuf) == ID_SWRT)
+        {
+            pos = 4;
+        }
+        else
         {
             SetIoErr(ERROR_OBJECT_WRONG_TYPE);
             goto fail;
@@ -229,13 +248,7 @@ static IPTR Swrt__OM_NEW(Class *cl, Object *o, struct opSet *msg)
             goto fail;
         }
 
-        /* Parse IFF chunks starting after FORM header (12 bytes) */
-        pos = 12;
-        remaining = filesize - 12;
-
-        BOOL prev_was_empty = FALSE;
-        BOOL last_was_nl = TRUE;
-
+        /* Parse IFF chunks (FORM/SWRT starts at 12, raw SWRT at 4) */
         while (pos + 8 <= filesize)
         {
             ULONG chunk_id = ReadIFFLong(filebuf + pos);
@@ -350,14 +363,17 @@ static IPTR Swrt__OM_NEW(Class *cl, Object *o, struct opSet *msg)
         }
 
         FreeVec(filebuf);
+        filebuf = NULL;
 
         if (!success)
         {
             fail:
             if (filebuf)
+            {
                 FreeVec(filebuf);
-            if (data->Pool)
-                DeletePool(data->Pool);
+                filebuf = NULL;
+            }
+            /* OM_DISPOSE releases the text buffer and pool */
             CoerceMethod(cl, (Object *)retval, OM_DISPOSE);
             retval = 0;
         }
@@ -381,9 +397,10 @@ static IPTR Swrt__OM_DISPOSE(Class *cl, Object *o, Msg msg)
         NewList(linelist);
 
     /* Free our resources */
-    if (data->TextBuffer)
+    if (data->TextBuffer && data->Pool)
         FreePooled(data->Pool, data->TextBuffer, data->TextBufferAlloced);
-    DeletePool(data->Pool);
+    if (data->Pool)
+        DeletePool(data->Pool);
 
     retval = DoSuperMethodA(cl, o, msg);
     return retval;
@@ -463,6 +480,10 @@ static IPTR Swrt__DTM_READ(Class *cl, Object *o, struct dtRead *msg)
     {
         ULONG readlen = data->TextBufferLen;
 
+        if (msg->dtr_Offset >= readlen)
+            return 0;
+        readlen -= msg->dtr_Offset;
+
         if (msg->dtr_Length < readlen)
             readlen = msg->dtr_Length;
 
@@ -541,7 +562,7 @@ static IPTR Swrt__DTM_ASYNCLAYOUT(Class *cl, Object *o, struct gpLayout *gpl)
 
         ObtainSemaphore(&(si->si_Lock));
 
-        if (buffer)
+        if (buffer && bufferlen && font && domain)
         {
             InitRastPort(&trp);
             SetFont(&trp, font);
@@ -632,35 +653,35 @@ static IPTR Swrt__DTM_ASYNCLAYOUT(Class *cl, Object *o, struct gpLayout *gpl)
                 total  = si->si_TotVert;
                 max_linelength = si->si_TotHoriz * si->si_HorizUnit;
             }
-        }
 
-        si->si_VertUnit  = font->tf_YSize;
-        si->si_VisVert   = visible = domain->Height / si->si_VertUnit;
-        si->si_TotVert   = total;
-        si->si_HorizUnit = hunit = font->tf_XSize;
-        si->si_VisHoriz  = domain->Width / hunit;
-        si->si_TotHoriz  = max_linelength / hunit;
+            si->si_VertUnit  = font->tf_YSize;
+            si->si_VisVert   = visible = domain->Height / si->si_VertUnit;
+            si->si_TotVert   = total;
+            si->si_HorizUnit = hunit = font->tf_XSize;
+            si->si_VisHoriz  = domain->Width / hunit;
+            si->si_TotHoriz  = max_linelength / hunit;
+
+            if (bsig == 0)
+            {
+                NotifyAttrChanges(o, gpl->gpl_GInfo, 0,
+                    GA_ID          , G(o)->GadgetID,
+                    DTA_VisibleVert, visible,
+                    DTA_TotalVert  , total,
+                    DTA_NominalVert, nomheight,
+                    DTA_VertUnit   , font->tf_YSize,
+                    DTA_VisibleHoriz, (domain->Width / hunit),
+                    DTA_TotalHoriz  , max_linelength / hunit,
+                    DTA_NominalHoriz, nomwidth,
+                    DTA_HorizUnit   , hunit,
+                    DTA_TopHoriz    , si->si_TopHoriz,
+                    DTA_Title       , (IPTR)title,
+                    DTA_Busy        , FALSE,
+                    DTA_Sync        , TRUE,
+                    TAG_DONE);
+            }
+        }
 
         ReleaseSemaphore(&(si->si_Lock));
-
-        if (bsig == 0)
-        {
-            NotifyAttrChanges(o, gpl->gpl_GInfo, 0,
-                GA_ID          , G(o)->GadgetID,
-                DTA_VisibleVert, visible,
-                DTA_TotalVert  , total,
-                DTA_NominalVert, nomheight,
-                DTA_VertUnit   , font->tf_YSize,
-                DTA_VisibleHoriz, (domain->Width / hunit),
-                DTA_TotalHoriz  , max_linelength / hunit,
-                DTA_NominalHoriz, nomwidth,
-                DTA_HorizUnit   , hunit,
-                DTA_TopHoriz    , si->si_TopHoriz,
-                DTA_Title       , (IPTR)title,
-                DTA_Busy        , FALSE,
-                DTA_Sync        , TRUE,
-                TAG_DONE);
-        }
     }
 
     D(bug("Swrt_DTM_ASYNCLAYOUT: Done. Returning %d\n", total));
