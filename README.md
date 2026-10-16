@@ -37,6 +37,17 @@ make -f Makefile.gcc
 python gendt.py > FinalWriter.dt
 ```
 
+### Checking the parser:
+```
+make check
+```
+This builds `swrt_datatype/swrt_test.c` with the host compiler and runs it
+over the FinalWriter document `testdata/SuperMacrosDOCS.FinalWriter`, dumping
+the extracted text to `swrt_extracted.txt`. Use another document with:
+```
+make check TESTDOC=path/to/file.FinalWriter
+```
+
 ## File Format Support
 
 The DataType parses the FinalWriter IFF-based format:

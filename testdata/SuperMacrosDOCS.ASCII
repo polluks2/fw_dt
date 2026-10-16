@@ -1,0 +1,350 @@
+Auto_Save
+
+Originally written for Final Copy users, but better that the Final Writer auto save feature, because it can be totally transparent.  Its also has more flexible timing options.  Caution:  if you don't use the "Confirmation" option, there is no way to terminate the routine, except for ending the program and restarting it.
+
+
+
+Quick_Envelope
+
+Entering Data
+
+To begin, simply type the address on the screen, in the font and size you would like, and highlight it with the mouse.  Then run the SuperMacro by selecting the "Other >> ARexx Script" option from the "User" menu.  Then go to the directory that contains the SuperMacros and double-click on Quick_Envelope.  Better yet, add the script to a the "User Menu" or the "Button Strip".  If no text is highlighted, the SuperMacro will ask you for some.  Be sure the font and size you want is already selected.
+
+
+
+You will then be asked to enter a name for the template envelope.  This is the document that the address will be printed upon.  A sample template named "Template_BusinessEnvelope" has been supplied, and should be placed in your FWDocs drawer, so the SuperMacro can find it.  The address will be inserted after of the text on the "template", so be sure the last line is at the proper position, and the margins are set correctly for the address.  As long as this "template" envelope prints correctly, so will the final product.  Note: if this document is in a drawer with a different name, you will need to edit the macro itself to reflect the correct document drawer's name.  Always work with a copy of your original software, as macros are easy to screw up.
+
+
+
+Manipulating Data
+
+Once the envelope is created and addressed, the words can be manipulated as normal text (just cancel the print requestor first).   
+
+
+
+
+
+
+
+Create Bar Graph
+
+Entering Data
+
+Before you run this SuperMacro, you must enter the data to be graphed.
+
+
+
+Entering the data to be graphed is a very simple process.  The SuperMacro will look for each element of the graph in a certain line position.  Just enter each line of data in the proper order, then hit return.
+
+
+
+·	The first line must be the Title of the graph.
+
+·	The second line must be the Subtitle.
+
+·	The third line must contain the X-axis Title <tab> Y-axis Title.
+
+·	All remaining lines must contain X-axis Data <tab> Y-axis Data.
+
+
+
+The following example shows how the data entered on the left, will be used to automatically create the bar graph shown on the right.  Note the use of the <tab> key from the third line and onward.
+
+
+
+Example:
+
+
+
+Our Top Sellers!
+
+Third Quarter 1997
+
+Salesperson	Autos Sold
+
+Sally	15   
+
+Mark	12   
+
+Jim	18   
+
+Steve	11   
+
+Nancy	8   
+
+Rich	11   
+
+Nick	21   
+
+Dave	6   
+
+Mary	13   
+
+Sam	10   
+
+Susan	15   
+
+John	8   
+
+
+
+
+
+Note:  The current TextBlock font will be used within the graph.  To change this font, go to the Graphics/Settings/TextBlocks... menu and select 'Define'.
+
+
+
+Selecting Data
+
+The data to be graphed must be highlighted by dragging the pointer through all of the lines which contain data.  The highlight doesn't have to start at the very first character, or end at the very last, it just has to overlap each line that contains data.  Be careful not to highlight lines that contain no data, as this will prevent the SuperMacro from running properly.
+
+
+
+
+
+Creating the Graph
+
+Once the data is highlighted, select the CreateBarGraph SuperMacro.  This can be done by selecting the "Other >> ARexx Script" option from the "User" menu.  Then go to the directory that contains the SuperMacros and double-click on Create Bar Graph.
+
+
+
+A requestor will ask you to enter the maximum range for the Y-axis and the Y-axis increment.  This is the highest number that will appear on the vertical axis, and the increments which will be plotted on that axis.  In the above example the maximum range is 25, and the increment is 5.
+
+
+
+
+
+Manipulating the Graph
+
+Once the graph has been created, it can be moved, sized and rotated just like any other object.  If you want to change just a piece of the graph, like the subtitle, you must ungroup the graph first.  Do this by selecting the object, then choose the "Ungroup" option from the "Graphics" menu.  Now any part of the graph can be manipulated as an individual object.  To regroup the objects into one, drag a box around them all, choose "Group" from the "Graphics" menu.
+
+
+
+Create_BusinessLetter
+
+No explanation required, just follow the prompts.
+
+
+
+Create_Letterhead
+
+No explanation required, just follow the prompts.
+
+
+
+Create_Memorandum
+
+No explanation required, just follow the prompts.
+
+
+
+Create_Table
+
+Just type in the data using the format:
+
+
+
+Title<return> [Optional]
+
+Item1<tab>	Item2<tab> Item3<tab>	and so on...
+
+Item1<tab>	Item2<tab> Item3<tab>	and so on...
+
+
+
+Then highlight through all of the data lines you want in the table.  Run the Macro.
+
+
+
+Example:
+
+
+
+Farm Animals
+
+Animal	1993	1994
+
+Cows	2	6
+
+Pigs	56	12
+
+Goats	2	6
+
+
+
+The above example will produce the following table:
+
+
+
+
+
+Farm Animals
+
+	Animal	1993	1994
+
+	Cows	2	6
+
+	Pigs	56	12
+
+	Goats	2	6
+
+
+
+Note: The current margins must go from the Inside to the Outside margin.
+
+
+
+
+
+Save_Address1.1
+
+Allows the user to input an address and save it to a data file.  The default data file is called "Address_DataFile" and a sample is provided.  This sample should be copied into your FWDocs drawer.  The SuperMacro will ask you for nine pieces of information for each address, then save them all alphabetically sorted in the data file.  Along with the actual data file, a copy of the data file will be saved with a ".MergeFile" extension.  This is an ASCII file conforming to the "merge" file format, in case you want to print merge any or all of this data at a later time.
+
+
+
+Note:  So that the .MergeFile can also be used as a print merge data file, it must begin with the field names, such as:
+
+
+
+LastName,FirstName,Company,StreetAdd1,StreetAdd2,City,State,ZipCode,Phone
+
+
+
+
+
+Load_Address1.1
+
+Allows the user to search the data file for any number of matches to a string of search text.  The address(es) are then inserted at the current cursor position.
+
+
+
+To load all of the addresses in a certain field, such as everyone in the state of "CO", just add the commas before and after the search text string.  For example, searching for ",CO," will produce everyone in the state of Colorado, but not someone named "Cooper".  To load all addresses in the data file, search for just a comma (",").
+
+
+
+FlowCharting Macros (general info)
+
+I have created this set of SuperMacros to make Final Writer into a more efficient flowcharting tool (I do a lot of these for work, maybe you do too).  No doubt you will find other uses for these tools, but this is how they were intended to be used.  
+
+
+
+After using several dedicated flowcharting programs on other platforms, I decided that the Amiga needed this capability too, luckily Final Writer and ARexx provide the basis for an excellent flowcharting tool.  Dare I say that this set of macros makes for a better flowcharting package than MS-DOS programs costing hundreds?  Yep.  They're simple, but hats what makes them so nice to work with; hope you think so too.
+
+
+
+These macros will automatically create a new section in you document called "FlowChart."  This is the section where all graphic objects will appear.  You will have to switch between the "Main" section and the "Flowchart" section to create your chart.  Macros are provided for very quick switching via buttons, or do it the old fashioned way with the Edit/Go To Section menu.
+
+
+
+The basic tools I have provided will take any highlighted text and insert that text automatically into the selected FlowCartTool.  You may use any font and size you wish (and even mix and match), just change it all around before you highlight everything that should go into the symbol.  Note: Styles other than normal are not supported by text blocks, which is what will be used by all the macros (no automatic underlines, sorry, you'll need to draw that by hand).  Remember, the symbols are rather small, so font sizes over 12-14 points are not going to fit easily, 7-12 points generally work quite well.
+
+
+
+Most symbols are 1 inch wide, and consequently when you run your first macro, the margins will be changed to four, one inch columns so that the text will fit properly.  If a word won't fit on a line, you'll have to use a smaller font.  The FlowChartTool_Box macro will grow in height to accept any number of words, but not in width, to keep things neat.  The other tools are of a fixed size.  I did this in the interest of achieving a "professional" look. Obviously I think using smaller text looks better than having a myriad of different symbol sizes, and it makes connecting them all easier too.
+
+
+
+After a macro create's a symbol for your flowchart, just drag it to the appropriate place on the page (holding the "Ctrl" key down while draging is a big help here, since it will only let your symbol fall on 1/8 inch increments, making later connections quite easy!).
+
+
+
+Connect the symbols by drawing lines between them.  Pressing and holding  the "Alt" key down prior to dragging out your line will place an arrow on the end of it.  Again, holding the "Ctrl" key down as well will snap the mouse to 1/8 inch increments.  Use any line weight you wish, all symbols will automatically have a border of 2 points.
+
+
+
+Hints:
+
+Jumping Lines.  Since I developed these macros on Final Writer Release 1, there are no independent, curved lines available.  Therefore, when a line needs to cross or "jump" over another line, I suggest you simply end one line short of the other, then start it again on the other side (or use a small white box layered in between the lines to achieve the same affect).
+
+
+
+Example:			
+
+
+
+
+
+
+
+Alignment.  Unfortunately, it seems that grouped objects become very slightly dislocated from the 1/8 inch grid, provided by the "Ctrl" key.  This can make precisely attaching arrows a little bit difficult.  If your not satisfied with the match up, try dragging out a box over the whole page to select all graphics, lock them in place, go back and select only the symbols while holding down the shift key (multiple select) to select everything but the arrows and lines, then select the Graphics/Bring To Front menu item.  You may even want to make the lines overlap well underneath your symbols when using this technique.
+
+
+
+Tool Bar Setup.  These macros lend themselves to a dedicated button strip, hats how they were designed.  Try a design similar to button strip three associated with this document for a really nice setup.  The end buttons toggle you between the main section and the flowchart section, with the useful tools in the middle (the next six on the left being these macros).
+
+
+
+FlowChartTool_Box
+
+Normally use this tool for each step in any process.  This tool is the only one that will expand (in height only) to accept an unlimited amount of text.  It will be 1 inch wide and variable in length.  
+
+
+
+
+
+
+
+
+
+FlowChartTool_Circle
+
+Normally use this tool to annotate connections to other charts.  It will always be 3/4 inch in diameter.
+
+
+
+
+
+
+
+FlowChartTool_Diamond
+
+Normally use this tool to annotate decision points within charts, branch titles like "yes" and "no" can be generated with standard text blocks, or the FlowChartTool_Text if you want.  It will always be 1 an inch wide and 1 inch long at its widest points.	
+
+
+
+	
+
+
+
+FlowChartTool_Elipse
+
+Normally use this tool to annotate start and end points within charts.  It will always be 1 inch wide and 1/2 inch long.
+
+
+
+
+
+
+
+FlowChartTool_Graphic
+
+This tool will take the highlighted text and lay it on top of any graphic.  It will present the Open Graphic requestor so you can pick any graphic you like.  The objects that appear on the flowchart are not grouped automatically like the other tools.  This is so that you may size and align everything just the way you want.  I suggest you group it all when you are finished so that moving it in the future will be easy.  The sample is a hi-resolution full screen image, scaled within Final Writer, with a 2 point border, a white box under the text, and a black box offset for a shadow--all grouped.
+
+
+
+FlowChartTool_Text
+
+This tool can be used to generate 1 inch wide text blocks of any length.  Useful if you want to put a note on the page.
+
+
+
+
+
+
+
+
+
+FlowChart_ToMain
+
+This macro makes for a nice button to quickly switch back to the "Main" section of your document, which is where all of the raw text is kept.  The text entry mode will automatically be selected for you.
+
+
+
+FlowChart_ToFlowChart
+
+This macro makes for a nice button to quickly switch back to the "Flowchart" section of your document, which is where the flowchart itself is kept.  The graphic manipulation mode (the arrow button) will automatically be selected for you.
+
+
+
+Happy flowcharting.
+

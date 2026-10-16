@@ -1,0 +1,3 @@
+# Native test build artifacts (see 'make check')
+swrt_datatype/swrt_test
+swrt_extracted.txt
